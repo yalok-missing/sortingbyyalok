@@ -4,6 +4,8 @@ const ctx = canvas.getContext("2d");
 let data = [];
 let sorting = false;
 let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let pause = false;
+let speed = 10; // 기본 속도 (ms)
 
 // 색상 보간 (inferno 유사)
 function interpolateColor(value, min, max) {
@@ -54,7 +56,13 @@ function drawGraph(values, highlight = []) {
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise(async (resolve) => {
+    // 일시정지 상태면 대기
+    while (pause) {
+      await new Promise(r => setTimeout(r, 100));
+    }
+    setTimeout(resolve, ms * (speed / 10)); // 속도 반영
+  });
 }
 
 // ============ 정렬 알고리즘들 ============
@@ -396,6 +404,21 @@ const shuffleBtn = document.getElementById("shuffleBtn");
 const dataTypeSelect = document.getElementById("dataType");
 const numBarsInput = document.getElementById("numBars");
 const algoSelect = document.getElementById("algorithm");
+const pauseBtn = document.getElementById("pauseBtn");
+const resumeBtn = document.getElementById("resumeBtn");
+const speedRange = document.getElementById("speedRange");
+
+pauseBtn.onclick = () => {
+  pause = true;
+};
+
+resumeBtn.onclick = () => {
+  pause = false;
+};
+
+speedRange.oninput = (e) => {
+  speed = parseInt(e.target.value);
+};
 
 function init() {
   const n = parseInt(numBarsInput.value);
