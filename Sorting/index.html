@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>검 강화하기</title>
+  <style>
+    :root{font-family: Inter, system-ui, -apple-system, "Malgun Gothic", "맑은 고딕", Arial;}
+    body{background:#0f172a;color:#e6eef8;margin:0;padding:24px;}
+    .wrap{max-width:980px;margin:0 auto;background:#0b1220;padding:18px;border-radius:12px;box-shadow:0 6px 30px rgba(2,6,23,.7)}
+    header{display:flex;align-items:center;justify-content:space-between}
+    h1{font-size:20px;margin:0}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{background:#06233a;border:1px solid rgba(255,255,255,.04);color:#dff3ff;padding:8px 10px;border-radius:8px;cursor:pointer}
+    .main{display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:16px}
+    .card{background:linear-gradient(180deg, rgba(10,20,30,.8), rgba(6,14,20,.7));padding:14px;border-radius:10px}
+    .stat{display:flex;flex-direction:column;gap:6px}
+    .stat-row{display:flex;justify-content:space-between}
+    .big{font-size:28px;font-weight:700}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:6px;border-bottom:1px solid rgba(255,255,255,.03);font-size:13px}
+    .actions{display:flex;gap:8px;margin-top:12px}
+    .log{height:220px;overflow:auto;background:rgba(0,0,0,.35);padding:8px;border-radius:8px;font-size:13px}
+    .mode-toggle{display:inline-flex;background:#021424;border-radius:8px;padding:4px}
+    .mode-toggle button{background:transparent;border:none;padding:6px 10px;color:#9fd6ff}
+    .mode-toggle button.active{background:#114a6b;border-radius:6px}
+    .small{font-size:12px;color:#bcdff0}
+    .inventory{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .item{padding:6px 8px;border-radius:6px;background:rgba(255,255,255,.03);font-size:13px}
+    .footer{margin-top:12px;color:#9fbfd7;font-size:13px}
+    .disabled{opacity:.45;pointer-events:none}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>검 강화 시뮬레이터 (데이터 기반 샘플 구현)</h1>
+      <div class="controls">
+        <div class="mode-toggle" id="modeToggle">
+          <button id="hardBtn" class="active">하드모드</button>
+          <button id="easyBtn">이지모드</button>
+        </div>
+        <button id="enterFocusBtn">강화 모드</button>
+        <button id="resetBtn">초기화</button>
+      </div>
+    </header>
+
+    <div class="main">
+      <div class="card">
+        <div class="stat">
+          <div class="stat-row">
+            <div>현재 검</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;">
+              <img id="swordImg" src="0.png" style="height:150px;">
+              <span id="swordName">낡은 단검 (+0)</span>
+            </div>
+          </div>
+          <div class="stat-row"><div>돈</div><div class="big" id="gold">1,000,000</div></div>
+          <div class="stat-row"><div>강화 레벨</div><div id="level">0</div></div>
+          <div class="stat-row"><div>강화 비용</div><div id="nextCost">500</div></div>
+          <div class="stat-row"><div>성공 확률</div><div id="nextProb">100%</div></div>
+
+          <div class="actions">
+            <button id="strengthenBtn">강화 시도</button>
+            <button id="sellBtn">판매</button>
+            <input type="number" id="warpLevelInputUse" min="1" max="20" value="9" style="width:30 px;">
+            <button id="warp9Btn">워프권 사용</button>
+            
+          </div>
+
+          <div style="margin-top:10px">
+            <label><input type="checkbox" id="useProt"> 깨짐 방지권 자동 사용</label>
+          </div>
+
+          <div class="small" style="margin-top:10px">인벤토리:</div>
+          <div class="inventory" id="inventory"></div>
+
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          <div style="flex:1">
+            <div><strong>강화 로그</strong></div>
+            <div class="log" id="log"></div>
+          </div>
+          <div style="width:360px">
+            <div><strong>레벨 표 (간략)</strong></div>
+            <div style="height:12px"></div>
+            <table id="levelTable">
+              <thead><tr><th>Lv</th><th>이름</th><th>비용</th><th>확률</th><th>판매</th></tr></thead>
+              <tbody></tbody>
+            </table>
+            <div class="footer">※ 실제 나무위키 표의 데이터(일부)를 UI에 반영한 샘플입니다.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+      <div id="focusMode" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+      background:rgba(0,0,0,0.9); display:flex; flex-direction:column; justify-content:center; 
+      align-items:center; z-index:1000;">
+      <img id="focusSwordImg" src="sword0.png" style="max-height:70vh; transition:0.3s;">
+      <button id="focusStrengthenBtn" style="margin-top:20px; padding:12px 20px; font-size:18px;">강화 시도</button>
+      <div id="focusInfo" style="margin-top:20px; color:white; text-align:center;">
+        돈: <span id="focusGold">0</span>원<br>
+        워프권: <span id="focusWarp">없음</span>
+      </div>
+
+      <button id="exitFocusBtn" style="margin-top:10px; padding:8px 14px;">나가기</button>
+    </div>
+
+  </div>
+    <!-- 상점 화면 -->
+  <div id="shopMode" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; 
+      background:rgba(0,0,0,0.95); display:flex; flex-direction:column; justify-content:center; 
+      align-items:center; z-index:1000; color:white;">
+    <h2>상점</h2>
+    <div style="margin-top:20px; display:flex; flex-direction:column; gap:12px;">
+      <div>
+        <span>깨짐 방지권 (1,000,000원)</span>
+        <button id="buyProtShopBtn" style="margin-left:10px;">구매</button>
+      </div>
+      <div>
+        <span>+n 워프권</span>
+        <input type="number" id="warpLevelInput" min="1" max="20" value="9" style="width:50px;">
+        <button id="buyWarpShopBtn" style="margin-left:10px;">구매</button>
+      </div>
+    </div>
+    <!-- 워프권 가격표 영역 추가 -->
+    <div id="warpPriceTable" style="margin-top:10px; font-size:13px; color:#ccc;"></div>
+    <button id="exitShopBtn" style="margin-top:20px;">나가기</button>
+  </div>
+    
+
+<script>
+  
+// --- 데이터: 하드/이지 모드의 레벨 정보 (제공된 텍스트의 핵심 항목만 사용) ---
+const hardLevels = [
+  {lv:-1,name:'재시작', cost:0, prob:100, sell:0},
+  {lv:0,name:'낡은 단검', cost:500, prob:100, sell:0},
+  {lv:1,name:'쓸만한 단검', cost:500, prob:98, sell:200},
+  {lv:2,name:'견고한 단검', cost:1000, prob:95, sell:500},
+  {lv:3,name:'바이킹 소드', cost:2000, prob:93, sell:1000},
+  {lv:4,name:'불타는 검', cost:4000, prob:90, sell:2000},
+  {lv:5,name:'냉기의 소드', cost:7000, prob:86, sell:6000},
+  {lv:6,name:'양날 검', cost:10000, prob:81, sell:15000},
+  {lv:7,name:'심판자의 대검', cost:15000, prob:75, sell:25000},
+  {lv:8,name:'마력의 검', cost:22000, prob:70, sell:50000},
+  {lv:9,name:'타우 스워드', cost:30000, prob:66, sell:90000},
+  {lv:10,name:'형광검', cost:30000, prob:62, sell:180000},
+  {lv:11,name:'피묻은 검', cost:51000, prob:61, sell:500000},
+  {lv:12,name:'화염의 쌍검', cost:70000, prob:54, sell:1000000},
+  {lv:13,name:'불꽃 마검', cost:80000, prob:50, sell:2000000},
+  {lv:14,name:'마검 아포피스', cost:100000, prob:49, sell:5000000},
+  {lv:15,name:'데몬 배틀 엑스', cost:130000, prob:46, sell:10000000},
+  {lv:16,name:'투명 검', cost:170000, prob:44, sell:20000000},
+  {lv:17,name:'날렵한 용검', cost:220000, prob:40, sell:44500000},
+  {lv:18,name:'샤이니 소드', cost:300000, prob:38, sell:72000000},
+  {lv:19,name:'왕푸야샤', cost:400000, prob:35, sell:120000000},
+  {lv:20,name:'다색검', cost:650000, prob:33, sell:240000000}
+  // (원문에는 +21~+29까지 더 있음 — 필요시 확대)
+];
+
+const easyLevels = [
+  {lv:-1,name:'재시작', cost:0, prob:100, sell:0},
+  {lv:0,name:'낡은 단검', cost:300, prob:100, sell:0},
+  {lv:1,name:'쓸만한 단검', cost:300, prob:100, sell:150},
+  {lv:2,name:'견고한 단검', cost:500, prob:100, sell:400},
+  {lv:3,name:'바이킹 소드', cost:500, prob:95, sell:600},
+  {lv:4,name:'불타는 검', cost:1000, prob:95, sell:800},
+  {lv:5,name:'냉기의 소드', cost:1500, prob:90, sell:1600},
+  {lv:6,name:'양날 검', cost:2000, prob:90, sell:3500},
+  {lv:7,name:'심판자의 대검', cost:2000, prob:90, sell:6100},
+  {lv:8,name:'마력의 검', cost:3000, prob:85, sell:10000},
+  {lv:9,name:'타우 스워드', cost:5000, prob:80, sell:20000},
+  {lv:10,name:'형광검', cost:10900, prob:80, sell:35100},
+  {lv:11,name:'피묻은 검', cost:20000, prob:75, sell:160000},
+  {lv:12,name:'화염의 쌍검', cost:35000, prob:70, sell:350000},
+  {lv:13,name:'불꽃 마검', cost:55000, prob:70, sell:1000000},
+  {lv:14,name:'마검 아포피스', cost:100000, prob:65, sell:3000000},
+  {lv:15,name:'데몬 배틀 엑스', cost:180000, prob:60, sell:7500000},
+  {lv:16,name:'투명 검', cost:300000, prob:60, sell:14200000},
+  {lv:17,name:'날렵한 용검', cost:300000, prob:55, sell:20000000},
+  {lv:18,name:'샤이니 소드', cost:500000, prob:50, sell:30000000},
+  {lv:19,name:'왕푸야샤', cost:800000, prob:50, sell:47500000},
+  {lv:20,name:'다색검', cost:1500000, prob:45, sell:68300000}
+];
+
+// --- 상태 ---
+let mode = 'hard'; // 'hard' or 'easy'
+let currentLv = 0;
+let gold = 1000000; // 기본돈
+let inventory = { prot:0, warp:{}}; // warp: { n: 개수 }
+
+
+// --- DOM ---
+const goldEl = document.getElementById('gold');
+const levelEl = document.getElementById('level');
+const swordNameEl = document.getElementById('swordName');
+const nextCostEl = document.getElementById('nextCost');
+const nextProbEl = document.getElementById('nextProb');
+const logEl = document.getElementById('log');
+const invEl = document.getElementById('inventory');
+const levelTableBody = document.querySelector('#levelTable tbody');
+const exitFocusBtn = document.getElementById('exitFocusBtn');
+
+// 버튼들
+const hardBtn = document.getElementById('hardBtn');
+const easyBtn = document.getElementById('easyBtn');
+const resetBtn = document.getElementById('resetBtn');
+const strengthenBtn = document.getElementById('strengthenBtn');
+const sellBtn = document.getElementById('sellBtn');
+const warp9Btn = document.getElementById('warp9Btn');
+const useProtCheckbox = document.getElementById('useProt');
+
+//강화모드
+const enterFocusBtn = document.getElementById('enterFocusBtn');
+const focusMode = document.getElementById('focusMode');
+const focusSwordImg = document.getElementById('focusSwordImg');
+const focusStrengthenBtn = document.getElementById('focusStrengthenBtn');
+const warpLevelInputUse = document.getElementById('warpLevelInputUse');
+
+//상점
+const shopMode = document.getElementById('shopMode');
+const buyProtShopBtn = document.getElementById('buyProtShopBtn');
+const buyWarpShopBtn = document.getElementById('buyWarpShopBtn');
+const warpLevelInput = document.getElementById('warpLevelInput');
+const exitShopBtn = document.getElementById('exitShopBtn');
+const swordImg = document.getElementById("swordImg");
+const warpPriceTableEl = document.getElementById('warpPriceTable');
+
+function levels(){ return mode==='hard'? hardLevels : easyLevels }
+
+function refreshFocusUI(){
+  document.getElementById('focusGold').textContent = gold.toLocaleString();
+  
+  let warpText = '';
+  const warpKeys = Object.keys(inventory.warp);
+  if(warpKeys.length > 0){
+    warpKeys.forEach(k=>{
+      warpText += `+${k} × ${inventory.warp[k]}개  `;
+    });
+  } else {
+    warpText = '없음';
+  }
+  document.getElementById('focusWarp').textContent = warpText;
+}
+function refreshUI(){
+  goldEl.textContent = gold.toLocaleString();
+  levelEl.textContent = currentLv;
+  const lvObj = levels()[currentLv+1] || {name:'(미지원)',cost:'-',prob:0,sell:0};
+  swordNameEl.textContent = `${lvObj.name} (+${currentLv+1})`;
+  const nextLvObj = levels()[currentLv+2];
+  nextCostEl.textContent = nextLvObj ? nextLvObj.cost.toLocaleString() : '-';
+  nextProbEl.textContent = nextLvObj ? nextLvObj.prob + '%' : '-';
+
+  invEl.innerHTML = '';
+  const protEl = document.createElement('div'); 
+  protEl.className='item'; 
+  protEl.textContent = `깨짐 방지권 × ${inventory.prot}`;
+  invEl.appendChild(protEl);
+
+  for(let n in inventory.warp){
+    const wEl = document.createElement('div'); 
+    wEl.className='item'; 
+    wEl.textContent = `+${n} 워프권 × ${inventory.warp[n]}`;
+    invEl.appendChild(wEl);
+  }
+
+  // level table
+  levelTableBody.innerHTML = '';
+  levels().slice(0,21).forEach(it=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>+${it.lv}</td><td>${it.name}</td><td>${it.cost.toLocaleString()}</td><td>${it.prob}%</td><td>${(it.sell||'-').toLocaleString()}</td>`;
+    levelTableBody.appendChild(tr);
+  });  
+  swordImg.src = `sword${currentLv}.png`;
+
+  // 강화 화면 정보 갱신
+  refreshFocusUI();
+}
+
+
+function log(msg){
+  const p = document.createElement('div');
+  p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  logEl.prepend(p);
+}
+
+function attemptStrengthen(){
+  const next = levels()[currentLv+1];
+  if(!next){ log('더 이상 강화할 단계가 없습니다.'); return; }
+  const cost = next.cost;
+  if(gold < cost){ log('돈이 부족합니다.'); return; }
+  // 비용 차감
+  gold -= cost;
+  const useProt = useProtCheckbox.checked && inventory.prot>0;
+  if(useProt){ inventory.prot -= 1; log('깨짐 방지권 사용! (보호)'); }
+
+  const roll = Math.random()*100;
+  const success = roll < next.prob;
+  if(success){
+    currentLv += 1;
+    log(`강화 성공! → +${currentLv} (${next.name})`);
+  } else {
+    currentLv = -1;
+    log(`강화 실패. (확률 ${next.prob}%)`);
+  }
+  refreshUI();
+}
+
+function sellSword(){
+  const cur = levels()[currentLv];
+  if(!cur){ log('판매 불가 단계입니다.'); return; }
+  const price = cur.sell || 0;
+  gold += price;
+  log(`검 판매: +${price.toLocaleString()}원 (레벨 +${currentLv} ${cur.name})`);
+  currentLv = 0;
+  refreshUI();
+}
+
+// +n 워프권 사용
+function useWarpN(n){
+  if(n < 1 || n > 20){
+    log('유효한 레벨을 입력하세요 (1~20)');
+    return;
+  }
+  if(!inventory.warp[n] || inventory.warp[n] <= 0){
+    log(`+${n} 워프권이 없습니다.`);
+    return;
+  }
+  inventory.warp[n] -= 1;
+  currentLv = n;
+  log(`+${n} 워프권 사용! 현재 레벨이 +${n}로 변경됩니다.`);
+  refreshUI();
+}
+
+
+
+
+// 상점: 워프권/깨짐 방지권 간단 구매
+function buyProt(){
+  const price = (mode==='hard')? 1000000 : 1000000; // 편의를 위해 동일 가격
+  if(gold < price){ log('돈 부족: 깨짐 방지권 구매 실패'); return; }
+  gold -= price; inventory.prot += 1; log('깨짐 방지권 1개 구매'); refreshUI();
+}
+
+// 모드 전환
+hardBtn.addEventListener('click', ()=>{ mode='hard'; hardBtn.classList.add('active'); easyBtn.classList.remove('active'); log('하드모드 선택'); refreshUI(); });
+easyBtn.addEventListener('click', ()=>{ mode='easy'; easyBtn.classList.add('active'); hardBtn.classList.remove('active'); log('이지모드 선택'); refreshUI(); });
+resetBtn.addEventListener('click', ()=>{ currentLv=0; gold=1000000; inventory={prot:0,warp9:0}; log('초기화 되었습니다.'); refreshUI(); });
+strengthenBtn.addEventListener('click', attemptStrengthen);
+sellBtn.addEventListener('click', sellSword);
+warp9Btn.addEventListener('click', ()=>useWarpN(parseInt(warpLevelInputUse.value)));
+// 기존 enterFocusBtn 클릭 이벤트
+enterFocusBtn.addEventListener('click', ()=>{
+    document.querySelector('.main').style.display = 'none'; // ← 이 줄이 시작 시 화면을 숨김
+    focusMode.style.display = 'flex';
+    focusSwordImg.src = `sword${currentLv}.png`;
+});
+exitFocusBtn.addEventListener('click', ()=>{
+    // 기존 UI 복구
+    document.querySelector('.main').style.display = 'grid';
+    focusMode.style.display = 'none';
+});
+
+// 강화하기 버튼 연결
+focusStrengthenBtn.addEventListener('click', ()=>{
+    attemptStrengthen();
+    focusSwordImg.src = `sword${currentLv}.png`; // 이미지 갱신
+}); 
+// 초기 UI 세팅
+refreshUI();
+log('시뮬레이터 준비됨. 하드모드 기본 설정.');
+
+// 상점 열기 버튼 (예: 기존 UI에서 "상점" 버튼 추가 가능)
+const openShopBtn = document.createElement('button');
+openShopBtn.textContent = "상점 열기";
+openShopBtn.style.marginLeft = "10px";
+document.querySelector('.controls').appendChild(openShopBtn);
+
+openShopBtn.addEventListener('click', () => {
+  shopMode.style.display = 'flex';
+});
+exitShopBtn.addEventListener('click', () => {
+  shopMode.style.display = 'none';
+});
+
+// 깨짐 방지권 구매
+buyProtShopBtn.addEventListener('click', () => {
+  const price = 1000000;
+  if(gold >= price){
+    gold -= price;
+    inventory.prot += 1;
+    log('상점에서 깨짐 방지권 1개 구매');
+    refreshUI();
+  } else {
+    log('돈 부족: 깨짐 방지권 구매 실패');
+  }
+});
+
+function getWarpPrice(n){
+    if(n < 1) return 0;
+    if(n <= 8){
+        // 저레벨권: 100,000~700,000원 정도 (대략적 선형)
+        return 100000 + (n - 1) * 75000; 
+    } else if(n <= 15){
+        // 중간레벨권: +9=800,000, +15=10,000,000
+        const minLevel = 9, maxLevel = 15;
+        const minPrice = 800000, maxPrice = 10000000;
+        return Math.round((minPrice + (maxPrice - minPrice) * (n - minLevel) / (maxLevel - minLevel)) / 1000) * 1000;
+    } else {
+        // 고레벨권: +16~+20, +15 가격 기반으로 증가 (단순 선형)
+        const minLevel = 15, maxLevel = 20;
+        const minPrice = 10000000, maxPrice = 20000000; // 예시 최대 20M
+        return Math.round((minPrice + (maxPrice - minPrice) * (n - minLevel) / (maxLevel - minLevel)) / 1000) * 1000;
+    }
+}
+
+
+// 가격표 표시
+function updateWarpPriceTable(){
+  let html = '<strong>워프권 가격표</strong><br>';
+  for(let i=1;i<=20;i++){
+    html += `+${i}강: ${getWarpPrice(i).toLocaleString()}원 &nbsp;&nbsp;`;
+    if(i % 5 === 0) html += '<br>';
+  }
+  warpPriceTableEl.innerHTML = html;
+}
+
+// 초기 표시
+updateWarpPriceTable();
+
+
+// +n 워프권 구매
+buyWarpShopBtn.addEventListener('click', () => {
+  const n = parseInt(warpLevelInput.value);
+  if(isNaN(n) || n < 1 || n > 20){
+    alert('유효한 레벨을 입력하세요 (1~20)');
+    return;
+  }
+  const price = getWarpPrice(n);
+  if(gold >= price){
+    gold -= price;
+    inventory.warp[n] = (inventory.warp[n] || 0) + 1; // 구매 개수 증가
+    log(`상점에서 +${n} 워프권 구매`);
+    refreshUI();
+  } else {
+    log('돈 부족: 워프권 구매 실패');
+  }
+});
+focusMode.style.display = 'none';
+shopMode.style.display = 'none';
+document.querySelector('.main').style.display = 'grid';
+
+
+</script>
+</body>
+</html>
